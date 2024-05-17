@@ -22,4 +22,4 @@ lancez les commandes suivantes dans votre bash :
 
 ## Pour finir
 
-Ouvrez votre navigateur sur l'url suivante : http://localhost:3000/api-docs
+Ouvrez votre navigateur sur l'url suivante & amusez-vous : http://localhost:3000/api-docs
