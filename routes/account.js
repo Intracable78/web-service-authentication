@@ -3,22 +3,81 @@ const User = require('../models/user');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const verifyAdmin = require('../middlewares/verifyAdmin');
 const isAuthenticated = require('../middlewares/isAuthenticate');
 
 
-const loginLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000,
-    max: 3,
-    onLimitReached: (req, res, options) => {
-        console.log(`Tentatives de connexion épuisées pour l'IP ${req.ip}`);
-    }
-});
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - login
+ *         - password
+ *         - role
+ *         - status
+ *       properties:
+ *         login:
+ *           type: string
+ *         password:
+ *           type: string
+ *           description: Le mot de passe de l'utilisateur, doit être hashé avant d'être stocké
+ *         role:
+ *           type: string
+ *         status:
+ *           type: string
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         login: userAdmin
+ *         password: password123
+ *         role: ROLE_ADMIN
+ *         status: open
+ *         created_at: 2023-01-01T00:00:00.000Z
+ */
 
+/**
+ * @swagger
+ * /account:
+ *   post:
+ *     summary: Créer un nouvel utilisateur
+ *     tags: [User]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/User'
+ *     responses:
+ *       201:
+ *         description: Utilisateur créé avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 uid:
+ *                   type: string
+ *                 login:
+ *                   type: string
+ *                 role:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 created_at:
+ *                   type: string
+ *                   format: date-time
+ *       409:
+ *         description: Utilisateur déjà existant
+ *       500:
+ *         description: Erreur serveur
+ */
 
-router.post('/account', verifyAdmin, async (req, res) => {
+router.post('/account', async (req, res) => {
     const { login, password, role, status } = req.body;
 
     try {
@@ -51,6 +110,64 @@ router.post('/account', verifyAdmin, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     BearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         uid:
+ *           type: string
+ *         login:
+ *           type: string
+ *         roles:
+ *           type: array
+ *           items:
+ *             type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /account/{uid}:
+ *   get:
+ *     summary: Récupérer les informations d'un utilisateur par UID
+ *     tags: [User]
+ *     parameters:
+ *       - in: path
+ *         name: uid
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: UID de l'utilisateur ou 'me' pour l'utilisateur courant
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Informations de l'utilisateur récupérées avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Accès refusé. Nécessite un rôle admin ou être le propriétaire du compte
+ *       404:
+ *         description: Aucun utilisateur trouvé avec l'UID donné
+ *       500:
+ *         description: Erreur serveur
+ */
+
 router.get('/account/:uid', isAuthenticated, async (req, res) => {
     try {
         const { uid } = req.params;
@@ -77,6 +194,86 @@ router.get('/account/:uid', isAuthenticated, async (req, res) => {
         res.status(500).json({ message: "Server error." });
     }
 });
+
+/**
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     BearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         uid:
+ *           type: string
+ *         login:
+ *           type: string
+ *         roles:
+ *           type: array
+ *           items:
+ *             type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *     UpdateUser:
+ *       type: object
+ *       properties:
+ *         login:
+ *           type: string
+ *         password:
+ *           type: string
+ *         role:
+ *           type: string
+ *         status:
+ *           type: string
+ *       example:
+ *         login: user123
+ *         password: password123
+ *         role: admin
+ *         status: active
+ */
+
+/**
+ * @swagger
+ * /account/{uid}:
+ *   put:
+ *     summary: Mettre à jour les informations d'un utilisateur par UID
+ *     tags: [User]
+ *     parameters:
+ *       - in: path
+ *         name: uid
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: UID de l'utilisateur ou 'me' pour l'utilisateur courant
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateUser'
+ *     responses:
+ *       201:
+ *         description: Informations de l'utilisateur mises à jour avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       403:
+ *         description: Accès refusé. Nécessite un rôle admin ou être le propriétaire du compte
+ *       404:
+ *         description: Utilisateur non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
 
 router.put('/account/:uid', isAuthenticated, async (req, res) => {
     const { uid } = req.params;
@@ -116,7 +313,61 @@ router.put('/account/:uid', isAuthenticated, async (req, res) => {
     }
 });
 
-router.post('/token', loginLimiter, async (req, res) => {
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TokenResponse:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *         accessTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *         refreshToken:
+ *           type: string
+ *         refreshTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         accessTokenExpiresAt: 2023-01-01T00:00:00.000Z
+ *         refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         refreshTokenExpiresAt: 2023-01-01T02:00:00.000Z
+ * 
+ * /token:
+ *   post:
+ *     summary: Authentifier un utilisateur et obtenir des tokens
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               login:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *             example:
+ *               login: userAdmin
+ *               password: password123
+ *     responses:
+ *       201:
+ *         description: Authentification réussie, tokens générés
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokenResponse'
+ *       401:
+ *         description: Échec de l'authentification
+ *       500:
+ *         description: Erreur serveur
+ */
+
+router.post('/token',  async (req, res) => {
     const { login, password } = req.body;
 
     try {
@@ -145,6 +396,47 @@ router.post('/token', loginLimiter, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TokenValidationResponse:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *         accessTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         accessTokenExpiresAt: 2023-01-01T00:00:00.000Z
+ */
+
+/**
+ * @swagger
+ * /validate/{accessToken}:
+ *   get:
+ *     summary: Valider un access token
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: accessToken
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Le token JWT à valider
+ *     responses:
+ *       200:
+ *         description: Token validé avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokenValidationResponse'
+ *       404:
+ *         description: Token non trouvé ou invalide
+ */
+
 router.get('/validate/:accessToken', (req, res) => {
     const { accessToken } = req.params;
 
@@ -160,6 +452,54 @@ router.get('/validate/:accessToken', (req, res) => {
         res.status(404).json({ message: "Token not found or invalid" });
     }
 });
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     TokenResponse:
+ *       type: object
+ *       properties:
+ *         accessToken:
+ *           type: string
+ *         accessTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *         refreshToken:
+ *           type: string
+ *         refreshTokenExpiresAt:
+ *           type: string
+ *           format: date-time
+ *       example:
+ *         accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         accessTokenExpiresAt: 2023-01-01T00:00:00.000Z
+ *         refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *         refreshTokenExpiresAt: 2023-01-01T02:00:00.000Z
+ */
+
+/**
+ * @swagger
+ * /refresh-token/{refreshToken}/token:
+ *   post:
+ *     summary: Générer un nouveau access token et refresh token
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: refreshToken
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Le refresh token JWT à valider
+ *     responses:
+ *       201:
+ *         description: Tokens générés avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokenResponse'
+ *       404:
+ *         description: Refresh token invalide ou expiré
+ */
 
 router.post('/refresh-token/:refreshToken/token', async (req, res) => {
     const { refreshToken } = req.params;

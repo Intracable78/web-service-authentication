@@ -2,12 +2,12 @@ version: '3.8'
 services:
   app:
     build: .
+    container_name: web-service-authentifaction-app
     ports:
       - "3000:3000"
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - NODE_ENV=${NODE_ENV}  
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
@@ -15,10 +15,11 @@ services:
       - mongo
     networks:
       - app-network
-    command: nodemon app.js 
+    command: ["nodemon", "app.js"]
 
   mongo:
-    image: mongo
+    image: mongo:5
+    container_name: web-service-authentifaction-mongo
     volumes:
       - mongo-data:/data/db
     ports:
